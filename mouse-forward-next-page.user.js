@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         滑鼠側鍵「下一頁」自動翻頁
 // @namespace    local.mouse-forward-next
-// @version      1.1.2
+// @version      1.1.3
 // @updateURL    https://raw.githubusercontent.com/vaz1306011/mouse-forward-next/main/mouse-forward-next-page.user.js
 // @downloadURL  https://raw.githubusercontent.com/vaz1306011/mouse-forward-next/main/mouse-forward-next-page.user.js
 // @description  沒有可前進的歷史紀錄時,按滑鼠側鍵「下一頁」會自動跳到網頁的下一頁
@@ -91,8 +91,9 @@
         }
       }
     }
-    const m = url.pathname.match(/^(.*\/page\/)(\d+)(\/?)$/i) ||
-              url.pathname.match(/^(.*[-_\/])(\d+)(\.html?|\/)?$/i);
+    // 只認明確的分頁路徑(/page/N、/p/N);不能用「結尾數字 +1」,
+    // 否則像 pixiv 的 /artworks/123 這種作品 ID 會跳到不相干的內容
+    const m = url.pathname.match(/^(.*\/(?:page|p)\/)(\d+)(\/?)$/i);
     if (m) {
       url.pathname = m[1] + (parseInt(m[2], 10) + 1) + (m[3] || '');
       return url.href;
