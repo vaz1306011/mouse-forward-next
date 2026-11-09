@@ -94,12 +94,29 @@
       url.pathname = m[1] + (parseInt(m[2], 10) + 1) + (m[3] || '');
       return url.href;
     }
-    // 第一頁沒有頁碼,但有分頁區塊 → 猜 ?page=2
-    if (document.querySelector('.pagination, .pager, .pagenavi, .page-numbers')) {
-      url.searchParams.set('page', '2');
-      return url.href;
-    }
     return null;
+  }
+
+  // 連結或其外層是否被停用(最後一頁時,「下一頁」通常會變成停用狀態)
+  function isDisabled(el) {
+    for (let n = el, i = 0; n && i < 2; n = n.parentElement, i++) {
+      if (n.disabled || n.getAttribute('aria-disabled') === 'true') return true;
+      if (/(^|[\s_-])(disabled|inactive|is-disabled)([\s_-]|$)/i.test(n.className || '')) return true;
+    }
+    return false;
+  }
+
+  // 驗證猜出來的網址:不存在(404)或被導回原頁就當作已是最後一頁
+  async function guessExists(guess) {
+    try {
+      const res = await fetch(guess, { credentials: 'include' });
+      if (!res.ok) return false;
+      const strip = u => u.split('#')[0];
+      if (strip(res.url) === strip(location.href)) return false;
+      return true;
+    } catch (e) {
+      return false; // 跨網域或網路錯誤:保守起見不跳轉
+    }
   }
 
   // 找「頁碼參數 = 目前頁 + 1」的連結(pixiv 這類 class 被雜湊、按鈕只有圖示的網站)
@@ -115,15 +132,22 @@
       if (u.origin !== cur.origin || u.pathname !== cur.pathname) continue;
       const k = key || PAGE_KEYS.find(x => u.searchParams.has(x));
       if (!k) continue;
+      paginationSeen = true; // 頁面上有分頁連結
       if (parseInt(u.searchParams.get(k), 10) === curNum + 1) return a;
     }
     return null;
   }
 
+  // 回傳:true = 已觸發翻頁;false = 已是最後一頁/找不到;Promise = 非同步驗證網址猜測
+  let paginationSeen = false;
   function goNext() {
-    const el = findNextByRel() || findNextByPageParam() || findNextByClass() ||
-               findNextByText() || findNextByCurrent();
-    if (el) {
+    paginationSeen = false;
+    const finders = [findNextByRel, findNextByPageParam, findNextByClass, findNextByText, findNextByCurrent];
+    let sawDisabled = false;
+    for (const find of finders) {
+      const el = find();
+      if (!el) continue;
+      if (isDisabled(el)) { sawDisabled = true; continue; }
       if (el.tagName === 'LINK') { location.href = el.href; }
       else {
         // 強制在同一個分頁開啟,避免被 AdGuard 之類的彈出視窗阻擋器攔下
@@ -135,9 +159,14 @@
       }
       return true;
     }
+    // 下一頁按鈕被停用,或頁面有分頁但沒有更後面的頁碼 → 已是最後一頁
+    if (sawDisabled || paginationSeen) return false;
     const guess = guessNextUrl();
-    if (guess) { location.href = guess; return true; }
-    return false;
+    if (!guess) return false;
+    return guessExists(guess).then(ok => {
+      if (ok) location.href = guess;
+      return ok;
+    });
   }
 
   // ---------- 事件 ----------
@@ -152,7 +181,9 @@
     // 先擋掉瀏覽器預設(避免沒作用或誤觸),再嘗試翻頁
     e.preventDefault();
     e.stopImmediatePropagation();
-    if (e.type === 'mouseup' && !goNext()) toast('找不到下一頁');
+    if (e.type === 'mouseup') {
+      Promise.resolve(goNext()).then(ok => { if (!ok) toast('已經是最後一頁'); });
+    }
   }
 
   function toast(msg) {
