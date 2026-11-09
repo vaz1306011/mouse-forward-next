@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         滑鼠側鍵「下一頁」自動翻頁
 // @namespace    local.mouse-forward-next
-// @version      1.1.1
+// @version      1.1.2
 // @updateURL    https://raw.githubusercontent.com/vaz1306011/mouse-forward-next/main/mouse-forward-next-page.user.js
 // @downloadURL  https://raw.githubusercontent.com/vaz1306011/mouse-forward-next/main/mouse-forward-next-page.user.js
 // @description  沒有可前進的歷史紀錄時,按滑鼠側鍵「下一頁」會自動跳到網頁的下一頁
@@ -186,18 +186,7 @@
     // 先擋掉瀏覽器預設(避免沒作用或誤觸),再嘗試翻頁
     e.preventDefault();
     e.stopImmediatePropagation();
-    if (e.type === 'mouseup') {
-      Promise.resolve(goNext()).then(ok => { if (!ok) toast('已經是最後一頁'); });
-    }
-  }
-
-  function toast(msg) {
-    const d = document.createElement('div');
-    d.textContent = msg;
-    d.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647;' +
-      'background:#000c;color:#fff;padding:8px 14px;border-radius:6px;font:14px sans-serif';
-    document.documentElement.appendChild(d);
-    setTimeout(() => d.remove(), 1500);
+    if (e.type === 'mouseup') goNext();
   }
 
   // 注意:不能監聽 pointerdown/pointerup 並 preventDefault,
