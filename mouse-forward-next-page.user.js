@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         滑鼠側鍵「下一頁」自動翻頁
 // @namespace    local.mouse-forward-next
-// @version      1.1.0
+// @version      1.1.1
 // @updateURL    https://raw.githubusercontent.com/vaz1306011/mouse-forward-next/main/mouse-forward-next-page.user.js
 // @downloadURL  https://raw.githubusercontent.com/vaz1306011/mouse-forward-next/main/mouse-forward-next-page.user.js
 // @description  沒有可前進的歷史紀錄時,按滑鼠側鍵「下一頁」會自動跳到網頁的下一頁
@@ -69,7 +69,8 @@
       '.pagination .active, .pager .active, .pagination .current, .pager .current, ' +
       '.page-numbers.current, [aria-current="page"], .pagenavi .current, .page .current'
     );
-    if (!cur) return null;
+    // 必須在分頁區塊內,避免誤抓到導覽分頁籤(例如 GitHub 的 Repositories 分頁籤)
+    if (!cur || !cur.closest('.pagination, .pager, .pagenavi, .page-numbers, [class*="pagination" i], nav[aria-label*="pagination" i]')) return null;
     let node = cur.closest('li') || cur;
     for (let n = node.nextElementSibling; n; n = n.nextElementSibling) {
       const a = n.tagName === 'A' ? n : n.querySelector('a[href]');
@@ -148,6 +149,8 @@
     let sawDisabled = false;
     for (const find of finders) {
       const el = find();
+      // 頁面有頁碼連結,卻沒有「目前頁 + 1」 → 已是最後一頁,不再用其他方式猜
+      if (!el && find === findNextByPageParam && paginationSeen) return false;
       if (!el) continue;
       if (isDisabled(el)) { sawDisabled = true; continue; }
       if (el.tagName === 'LINK') { location.href = el.href; }
